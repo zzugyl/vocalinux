@@ -24,6 +24,7 @@ class EngineType(Enum):
     WHISPER_CPP = "whisper_cpp"
     PARAKEET = "parakeet"
     FASTER_WHISPER = "faster_whisper"
+    FUNASR = "funasr"
     REMOTE_API = "remote_api"
 
 
