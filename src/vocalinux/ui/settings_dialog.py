@@ -52,6 +52,7 @@ from ..custom_dictionary import normalize_corrections  # noqa: E402
 from ..gateway_embed import GatewayStatus, get_gateway_embed_manager  # noqa: E402
 from ..speech_recognition.silero_vad import is_silero_available  # noqa: E402
 from ..utils import faster_whisper_model_info as faster_whisper
+from ..utils import funasr_model_info as funasr
 from ..utils.faster_whisper_model_info import delete_model as delete_faster_whisper_model
 from ..utils.faster_whisper_model_info import (  # noqa: E402
     get_recommended_model as get_recommended_faster_whisper_model,
@@ -277,6 +278,9 @@ ENGINE_MODELS = {
         "medium.en",
         "large-v3",
     ],  # catalog sizes plus English-only .en variants (no large-v3.en)
+    "funasr": [
+        *funasr.FUNASR_MODEL_SIZES,
+    ],  # Paraformer-large contextual + CT-Transformer punctuation (zh/en)
     "remote_api": [],  # Remote API does not need local models
 }
 
@@ -296,6 +300,7 @@ ENGINE_DISPLAY_NAMES = {
     "whisper_cpp": "whisper.cpp",
     "parakeet": "Parakeet",
     "faster_whisper": "Faster Whisper",
+    "funasr": "FunASR",
     "remote_api": "Remote API",
 }
 
@@ -378,7 +383,7 @@ def _model_specialization_display_name(model_name: str) -> str:
 #: per language, so following a layout would stall the hotkey on a model reload;
 #: Parakeet never consumes a catalog language at all. Module level, not a class
 #: attribute, so tests driving the methods against a Mock still reach it.
-FOLLOW_LAYOUT_ENGINES = ("whisper", "whisper_cpp", "faster_whisper", "remote_api")
+FOLLOW_LAYOUT_ENGINES = ("whisper", "whisper_cpp", "faster_whisper", "funasr", "remote_api")
 
 #: Selected-setting keys that make up the model spec. While a spec that needs a
 #: download is staged (#894), these stay out of the saved config until the
@@ -1547,6 +1552,10 @@ def recommended_model_for_engine(
         model_id = parakeet.RECOMMENDED_MODEL
         reason = parakeet.RECOMMENDED_REASON
         size_mb = parakeet.PARAKEET_MODEL_INFO.get(model_id, {}).get("size_mb", 0)
+    elif engine == "funasr":
+        model_id = funasr.RECOMMENDED_MODEL
+        reason = funasr.RECOMMENDED_REASON
+        size_mb = funasr.FUNASR_MODEL_INFO.get(model_id, {}).get("size_mb", 0)
     elif engine == "faster_whisper":
         recommended_model, reason = get_recommended_faster_whisper_model()
         model_id, reason = _recommended_faster_whisper_variant_for_language(
@@ -2216,6 +2225,8 @@ def _undownloaded_model_info(language: str, engine: str, model_name: str) -> Opt
         return parakeet.PARAKEET_MODEL_INFO.get(model_name, {"size_mb": 639})
     if engine == "faster_whisper" and not is_faster_whisper_model_downloaded(model_name):
         return FASTER_WHISPER_MODEL_INFO.get(model_name, {"size_mb": 39})
+    if engine == "funasr" and not funasr.is_model_downloaded(model_name):
+        return funasr.FUNASR_MODEL_INFO.get(model_name, {"size_mb": 1129})
     return None
 
 
@@ -2239,6 +2250,12 @@ def _model_download_source_url(
     if engine == "faster_whisper":
         files = faster_whisper.model_files(model_name)
         return faster_whisper.get_model_file_url(model_name, files[0]) if files else ""
+    if engine == "funasr":
+        if model_name not in funasr.FUNASR_MODEL_INFO:
+            return ""
+        bundle = funasr.bundles_for(model_name)[0]
+        files = funasr.model_files(bundle)
+        return funasr.get_model_file_url(bundle, files[0]) if files else ""
     return ""
 
 
@@ -7733,6 +7750,8 @@ class SettingsDialog(AboutSectionMixin):
                         "",
                         self.language_combo.get_active_id() or self.language,
                     )
+                elif engine == "funasr":
+                    recommended_model = funasr.RECOMMENDED_MODEL
                 else:
                     recommended_model, _ = _get_recommended_vosk_model()
 
@@ -7750,6 +7769,9 @@ class SettingsDialog(AboutSectionMixin):
                         elif engine == "parakeet":
                             info = parakeet.PARAKEET_MODEL_INFO[size]
                             is_downloaded = parakeet.is_model_downloaded(size)
+                        elif engine == "funasr" and size in funasr.FUNASR_MODEL_INFO:
+                            info = funasr.FUNASR_MODEL_INFO[size]
+                            is_downloaded = funasr.is_model_downloaded(size)
                         else:
                             is_downloaded = False
                             info = {"size_mb": 0}
@@ -7932,6 +7954,9 @@ class SettingsDialog(AboutSectionMixin):
         if engine == "faster_whisper":
             model_id = self.model_combo.get_active_id()
             return model_id.lower() if model_id else None
+        if engine == "funasr":
+            model_id = self.model_combo.get_active_id()
+            return model_id.lower() if model_id else None
         return None
 
     def _list_unused_downloads(self) -> list[tuple[str, str, str]]:
@@ -8005,6 +8030,16 @@ class SettingsDialog(AboutSectionMixin):
                         name,
                         _model_display_name(name),
                         _format_size(FASTER_WHISPER_MODEL_INFO[name]["size_mb"]),
+                        name == active_id,
+                    )
+                )
+        elif engine == "funasr":
+            for name in funasr.list_downloaded_models():
+                items.append(
+                    (
+                        name,
+                        _model_display_name(name),
+                        _format_size(funasr.FUNASR_MODEL_INFO[name]["size_mb"]),
                         name == active_id,
                     )
                 )
@@ -8100,6 +8135,8 @@ class SettingsDialog(AboutSectionMixin):
             parakeet.delete_model(model_id)
         elif engine == "faster_whisper":
             delete_faster_whisper_model(model_id)
+        elif engine == "funasr":
+            funasr.delete_model(model_id)
         else:
             raise ValueError(f"No local models to delete for engine {engine}")
 
@@ -8314,7 +8351,14 @@ class SettingsDialog(AboutSectionMixin):
                     continue
                 is_downloaded = _is_vosk_model_downloaded("small", lang_code)
                 display_text += " ✓" if is_downloaded else " ↓"
-            elif engine in ["whisper", "whisper_cpp", "parakeet", "faster_whisper", "remote_api"]:
+            elif engine in [
+                "whisper",
+                "whisper_cpp",
+                "parakeet",
+                "faster_whisper",
+                "funasr",
+                "remote_api",
+            ]:
                 # An English-only model must not hide other languages: picking
                 # Polish (or auto) retargets to the multilingual sibling.
                 if lang_code == "auto":
@@ -8816,6 +8860,14 @@ class SettingsDialog(AboutSectionMixin):
                 self.language_combo.get_active_id() or self.language,
             )
             extra_info = f"Parameters: {info['params']}"
+        elif engine == "funasr":
+            if model_name not in funasr.FUNASR_MODEL_INFO:
+                self.model_info_card.hide()
+                return
+            info = funasr.FUNASR_MODEL_INFO[model_name]
+            is_downloaded = funasr.is_model_downloaded(model_name)
+            recommended, reason = funasr.RECOMMENDED_MODEL, funasr.RECOMMENDED_REASON
+            extra_info = f"Size: {_format_size(info['size_mb'])}"
         else:
             self.model_info_card.hide()
             return
@@ -8828,6 +8880,7 @@ class SettingsDialog(AboutSectionMixin):
             "vosk": VOSK_MODEL_INFO,
             "parakeet": parakeet.PARAKEET_MODEL_INFO,
             "faster_whisper": FASTER_WHISPER_MODEL_INFO,
+            "funasr": funasr.FUNASR_MODEL_INFO,
         }[engine].get(recommended, {})
         recommended_size_mb = cast(int, recommended_info.get("size_mb", 0))
 

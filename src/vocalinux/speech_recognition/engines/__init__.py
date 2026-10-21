@@ -22,6 +22,15 @@ try:
 except Exception:
     pass
 
+# Register FunASR when available. The module itself only needs numpy, so this
+# nearly always succeeds; ``available_engines`` reports funasr_onnx itself.
+try:
+    from .funasr_engine import FunasrEngine
+
+    ENGINES[EngineType.FUNASR] = FunasrEngine
+except Exception:
+    pass
+
 
 def _module_available(name: str) -> bool:
     try:
@@ -38,6 +47,7 @@ def available_engines() -> list[str]:
         "whisper_cpp": False,
         "parakeet": False,
         "faster_whisper": _module_available("faster_whisper"),
+        "funasr": _module_available("funasr_onnx"),
         "remote_api": False,
     }
 

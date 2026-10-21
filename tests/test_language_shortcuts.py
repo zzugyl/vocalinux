@@ -182,6 +182,7 @@ def _manager_stub(
     manager.state = RecognitionState.IDLE
     manager.state_callbacks = []
     manager._faster_whisper_engine = None
+    manager._funasr_engine = None
     manager.command_processor = MagicMock()
     manager._pending_language_override = None
     manager._oneshot_language_restore = None

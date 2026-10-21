@@ -20,6 +20,10 @@ from vocalinux.utils import model_checksums
 from vocalinux.utils.faster_whisper_model_info import FASTER_WHISPER_MODEL_INFO
 from vocalinux.utils.faster_whisper_model_info import manifest_key as faster_whisper_manifest_key
 from vocalinux.utils.faster_whisper_model_info import model_files as faster_whisper_model_files
+from vocalinux.utils.funasr_model_info import FUNASR_MODEL_INFO
+from vocalinux.utils.funasr_model_info import bundles_for as funasr_bundles_for
+from vocalinux.utils.funasr_model_info import manifest_key as funasr_manifest_key
+from vocalinux.utils.funasr_model_info import model_files as funasr_model_files
 from vocalinux.utils.model_checksums import (
     VERIFICATION_STAMP_NAME,
     ChecksumError,
@@ -110,6 +114,22 @@ class TestManifestCoverage(unittest.TestCase):
             missing,
             [],
             "faster-whisper models without a pinned checksum; "
+            "run `just model-checksums` to refresh the manifest",
+        )
+
+    def test_every_funasr_model_is_pinned(self):
+        pinned = pinned_filenames()
+        missing = [
+            funasr_manifest_key(bundle, filename)
+            for name in FUNASR_MODEL_INFO
+            for bundle in funasr_bundles_for(name)
+            for filename in funasr_model_files(bundle)
+            if funasr_manifest_key(bundle, filename) not in pinned
+        ]
+        self.assertEqual(
+            missing,
+            [],
+            "FunASR models without a pinned checksum; "
             "run `just model-checksums` to refresh the manifest",
         )
 

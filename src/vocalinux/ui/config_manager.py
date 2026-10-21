@@ -106,7 +106,7 @@ def clamp_playback_duck_percent(value: Any) -> int:
 # Default configuration
 DEFAULT_CONFIG = {
     "speech_recognition": {  # Changed section name
-        "engine": "whisper_cpp",  # whisper_cpp is default; vosk/whisper/parakeet/faster_whisper/remote_api are optional
+        "engine": "whisper_cpp",  # whisper_cpp is default; vosk/whisper/parakeet/faster_whisper/funasr/remote_api are optional
         # "auto" detects per utterance, "layout" follows the active keyboard
         # layout (#821), anything else pins one catalog language.
         "language": "auto",
@@ -125,6 +125,7 @@ DEFAULT_CONFIG = {
         "show_advanced": False,
         "parakeet_model_size": "v3-european",  # Parakeet TDT 0.6B v3 (25 European languages)
         "faster_whisper_model_size": "tiny",  # Default model for faster-whisper engine
+        "funasr_model_size": "paraformer-large",  # FunASR: Paraformer-large + punctuation (zh/en)
         "vad_sensitivity": 3,  # Voice Activity Detection sensitivity (1-5)
         "silence_timeout": 1.2,  # Seconds of silence before stopping
         "stop_sound_guard_ms": 200,  # Small tail trim to avoid the stop sound without clipping speech
