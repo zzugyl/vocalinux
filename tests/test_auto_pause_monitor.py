@@ -465,6 +465,7 @@ class TestUnloadModelAndAutoPauseBlock(unittest.TestCase):
         mgr._session_cancel = threading.Event()
         mgr._http_session = None
         mgr._faster_whisper_engine = None
+        mgr._funasr_engine = None
         mgr._reconnection_attempts = 0
         mgr._lifecycle_lock = threading.RLock()
         mgr._worker_session = threading.local()

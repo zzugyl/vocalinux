@@ -156,6 +156,7 @@ def _manager_stub(model_size: str, language: str = "en-us") -> Any:
     manager.language = language
     manager.language_preference = "layout"
     manager._faster_whisper_engine = None
+    manager._funasr_engine = None
     manager.command_processor = MagicMock()
     manager.reconfigure = MagicMock()
     return manager
