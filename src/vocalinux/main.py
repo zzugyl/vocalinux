@@ -87,7 +87,15 @@ def parse_arguments():
     parser.add_argument(
         "--engine",
         type=str,
-        choices=["vosk", "whisper", "whisper_cpp", "parakeet", "faster_whisper", "remote_api"],
+        choices=[
+            "vosk",
+            "whisper",
+            "whisper_cpp",
+            "parakeet",
+            "faster_whisper",
+            "funasr",
+            "remote_api",
+        ],
         help="Speech recognition engine to use (whisper_cpp recommended for best performance)",
     )
     parser.add_argument("--wayland", action="store_true", help="Force Wayland compatibility mode")
