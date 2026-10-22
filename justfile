@@ -216,6 +216,7 @@ lock:
     uv export --no-dev --extra vosk --no-emit-project --no-emit-package pygobject -o requirements/vosk.txt
     uv export --no-dev --extra parakeet --no-emit-project --no-emit-package pygobject -o requirements/parakeet.txt
     uv export --no-dev --extra faster-whisper --no-emit-project --no-emit-package pygobject -o requirements/faster-whisper.txt
+    uv export --no-dev --extra funasr --no-emit-project --no-emit-package pygobject -o requirements/funasr.txt
     # --group lint too: the linters live in a dependency group, not in the dev
     # extra, so exporting the extra alone produced a file that reproduced
     # neither `just deps` nor what CI lints with.

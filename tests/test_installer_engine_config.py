@@ -35,7 +35,14 @@ def _venv_python(venv_dir: Path, importable: set[str] | None = None) -> Path:
     ``importable`` names the engine modules that succeed; every other engine
     module fails. Anything else (the json probes) runs on the real interpreter.
     """
-    modules = {"vosk", "whisper", "pywhispercpp.model", "sherpa_onnx", "faster_whisper"}
+    modules = {
+        "vosk",
+        "whisper",
+        "pywhispercpp.model",
+        "sherpa_onnx",
+        "faster_whisper",
+        "funasr_onnx",
+    }
     ok = importable if importable is not None else set()
     python = venv_dir / "bin" / "python"
     python.parent.mkdir(parents=True, exist_ok=True)
@@ -212,6 +219,39 @@ def test_selected_engine_tracks_a_parakeet_config_repair(tmp_path: Path) -> None
     config = _config(tmp_path / "config", "parakeet")
 
     result = _check(tmp_path / "config", venv, selected_engine="parakeet")
+
+    assert "EXIT=0" in result.stdout
+    assert "SELECTED=whisper_cpp" in result.stdout
+    assert _engine_of(config) == "whisper_cpp"
+
+
+def test_funasr_import_error_reports_success_and_failure(tmp_path: Path) -> None:
+    """`import funasr_onnx` is what gates the funasr install arm, so the
+    report must name both the engine and the module it failed to import."""
+    venv = tmp_path / "venv"
+    _venv_python(venv, importable={"funasr_onnx"})
+
+    imported = _check_engine_import(venv, "funasr")
+
+    assert "EXIT=0" in imported.stdout
+
+    _venv_python(venv, importable=set())
+
+    failed = _check_engine_import(venv, "funasr")
+
+    assert "EXIT=1" in failed.stdout
+    assert "ERROR: funasr installed but `import funasr_onnx` failed:" in failed.stdout
+    assert "ERROR: ModuleNotFoundError: No module named 'funasr_onnx'" in failed.stdout
+
+
+def test_selected_engine_repairs_a_funasr_config(tmp_path: Path) -> None:
+    """A funasr config on a venv without funasr-onnx repairs, and the
+    SELECTED_ENGINE bookkeeping follows it like parakeet's repair does."""
+    venv = tmp_path / "venv"
+    _venv_python(venv, importable={"pywhispercpp.model"})
+    config = _config(tmp_path / "config", "funasr")
+
+    result = _check(tmp_path / "config", venv, selected_engine="funasr")
 
     assert "EXIT=0" in result.stdout
     assert "SELECTED=whisper_cpp" in result.stdout
