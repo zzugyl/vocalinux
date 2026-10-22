@@ -389,7 +389,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --upgrade        Non-interactive upgrade of an existing install: reuse the"
             echo "                  venv, update the configured engine's dependencies, never"
             echo "                  modify config.json"
-            echo "  --engine=NAME    Speech engine: whisper_cpp (default), whisper, vosk, parakeet, faster_whisper, remote_api"
+            echo "  --engine=NAME    Speech engine: whisper_cpp (default), whisper, vosk, parakeet, faster_whisper, funasr, remote_api"
             echo "  --dev            Install in development mode with all dev dependencies"
             echo "  --test           Run tests after installation"
             echo "  --venv-dir=PATH  Specify custom virtual environment directory"
@@ -1445,7 +1445,7 @@ apply_upgrade_engine
 if [[ "$NON_INTERACTIVE" == "yes" ]] && [[ -z "$SELECTED_ENGINE" ]]; then
     SELECTED_ENGINE="whisper_cpp"
     print_info "Automatic mode: Installing with whisper.cpp (default engine)"
-    print_info "For other engines, use: --engine=whisper, --engine=vosk, --engine=parakeet, --engine=faster_whisper, or --engine=remote_api"
+    print_info "For other engines, use: --engine=whisper, --engine=vosk, --engine=parakeet, --engine=faster_whisper, --engine=funasr, or --engine=remote_api"
 fi
 
 
@@ -1981,6 +1981,7 @@ engine_import_module() {
         whisper_cpp) echo "pywhispercpp.model" ;;
         parakeet) echo "sherpa_onnx" ;;
         faster_whisper) echo "faster_whisper" ;;
+        funasr) echo "funasr_onnx" ;;
         *) echo "" ;;
     esac
 }
@@ -1992,6 +1993,7 @@ engine_pip_name() {
         whisper_cpp) echo "pywhispercpp" ;;
         parakeet) echo "sherpa-onnx" ;;
         faster_whisper) echo "faster-whisper" ;;
+        funasr) echo "funasr-onnx" ;;
         *) echo "" ;;
     esac
 }
@@ -2294,7 +2296,7 @@ pip_install_extras_skip_pygobject() {
     for extra in "$@"; do
         # uv normalizes underscores to dashes in export filenames.
         case "$extra" in
-            vad|vosk|parakeet|faster_whisper|whisper|dev) ;;
+            vad|vosk|parakeet|faster_whisper|funasr|whisper|dev) ;;
             *) print_error "Unknown dependency extra: $extra"; return 1 ;;
         esac
         pip_install_reqs_file "$pip_log" "$INSTALL_DIR/requirements/${extra//_/-}.txt" || return 1
@@ -2695,6 +2697,35 @@ FASTER_WHISPER_CONFIG
                     }
                     SELECTED_ENGINE="whisper_cpp"
                 fi
+                ;;
+
+            funasr)
+                print_info "Installing FunASR engine..."
+                print_info "Paraformer-large (zh + en) with punctuation, CPU via ONNX Runtime."
+
+                # funasr-onnx is an optional extra; install it alongside the base package
+                pip_install_extras_skip_pygobject "$PIP_LOG_FILE" funasr || {
+                    print_error "Failed to install the funasr engine"
+                    return 1
+                }
+                engine_import_error funasr || return 1
+
+                # Seed the shortcuts section like the other extras do (see
+                # parakeet): config_manager merges defaults, but a file with no
+                # shortcuts section reads as a pre-push-to-talk config.
+                mkdir -p "$CONFIG_DIR"
+                if [ ! -f "$CONFIG_DIR/config.json" ]; then
+                    cat > "$CONFIG_DIR/config.json" << 'FUNASR_CONFIG'
+{
+    "shortcuts": {
+        "toggle_recognition": "right_alt+right_alt",
+        "mode": "push_to_talk"
+    }
+}
+FUNASR_CONFIG
+                fi
+                set_configured_engine "$CONFIG_DIR/config.json" funasr ||
+                    print_warning "Could not point $CONFIG_DIR/config.json at the funasr engine."
                 ;;
         esac
     fi
@@ -3129,6 +3160,10 @@ EOF
         faster_whisper)
             ENGINE_DISPLAY_NAME="Faster-Whisper"
             BACKEND_INFO="PyTorch/CTranslate2"
+            ;;
+        funasr)
+            ENGINE_DISPLAY_NAME="FunASR (Paraformer)"
+            BACKEND_INFO="CPU (ONNX Runtime)"
             ;;
         remote_api)
             ENGINE_DISPLAY_NAME="Remote API"
