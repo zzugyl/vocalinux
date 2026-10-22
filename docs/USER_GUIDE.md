@@ -103,9 +103,12 @@ Open **Settings → Speech Model**. The page starts with a simple setup (languag
 | **Faster Whisper** | CPU Whisper (CTranslate2 / INT8) | Optional CUDA | Similar model sizes to Whisper |
 | **VOSK** | Low RAM / older machines | CPU | ~40MB |
 | **Parakeet** | CPU dictation; 25 European languages | CPU | ~639MB v3-european |
+| **FunASR** | Chinese + English dictation; adds punctuation | CPU | ~1.1GB paraformer-large |
 | **Remote API** | Offload to a server | N/A (server-side) | Opt-in; see [HTTP_REMOTE.md](HTTP_REMOTE.md) |
 
 Parakeet runs NVIDIA NeMo ASR models through sherpa-onnx. The default bundle is **v3-european** (25 European languages). **v2-english** is English-only. Parakeet ignores the catalog language picker (language is treated as auto).
+
+FunASR runs Paraformer-large through ONNX Runtime with CT-Transformer punctuation. One bilingual model serves Chinese and English, so recognition never reloads on a language switch; the language picker still chooses the voice-command language. Punctuation is added only when the recognized text contains Chinese characters.
 
 ### Language
 
@@ -118,7 +121,7 @@ switches dictation language with it. The Language picker greys out while this is
 on and shows what your current layout resolves to; turning it off pins that
 language.
 
-Available for whisper.cpp, Whisper, Faster Whisper, and Remote API. VOSK loads a
+Available for whisper.cpp, Whisper, Faster Whisper, FunASR, and Remote API. VOSK loads a
 separate model per language, so following a layout would mean a model reload on
 the hotkey; Parakeet does not use the language picker at all. Active-layout
 detection uses GNOME's input-source settings; on other desktops it falls back to
@@ -253,8 +256,9 @@ Open **Settings → Custom Dictionary** to configure two separate capabilities:
 
 VocaLinux re-reads both files before each completed dictation segment, so an
 external edit applies to the next segment without restarting the app. Vocabulary
-bias works with Whisper, whisper.cpp, and Faster Whisper. Corrections work with
-every engine, including VOSK, Parakeet, and the configured remote API.
+bias works with Whisper, whisper.cpp, and Faster Whisper; FunASR receives the same terms
+as contextual hotwords. Corrections work with every engine, including VOSK, Parakeet,
+FunASR, and the configured remote API.
 
 Corrections run before voice-command interpretation. This can prevent a
 command-like misrecognition from acting, but avoid replacements that create a

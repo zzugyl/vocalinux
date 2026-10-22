@@ -55,6 +55,8 @@ there is no reason to download the full model of the same size.
   option.
 - **Faster Whisper** and **OpenAI Whisper**: the same size guidance as the table above.
 - **Parakeet**: one model of about 640 MB.
+- **FunASR**: one bilingual Chinese + English model of about 1.1 GB (Paraformer-large
+  plus punctuation, downloaded together).
 - **Remote API**: transcription runs on your server, nothing is downloaded locally.
 
 Models are stored under `~/.local/share/vocalinux/models/` by default. Deleting a file there
