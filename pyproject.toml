@@ -66,6 +66,9 @@ parakeet = [
 faster_whisper = [
     "faster-whisper>=1.0.0,<2",
 ]
+funasr = [
+    "funasr-onnx>=0.4,<1",
+]
 vad = [
     "onnxruntime>=1.16.0",
 ]
@@ -133,6 +136,11 @@ Changelog = "https://github.com/VocaHQ/vocalinux/releases"
 # Contributors may use uv 0.12 or 0.13. CI and lock/export generation use
 # uv 0.13.3 for reproducible export formatting (see `just lock`).
 required-version = ">=0.12,<0.14"
+# funasr-onnx still ships `numpy<=1.26.4` in its metadata even though it runs
+# on numpy 2.x (verified against this project's locked runtime: Paraformer
+# inference on 2.4.6). Discard that stale cap for every parent instead of
+# letting the lock answer it by downgrading the shared runtime to 1.26.
+override-dependencies = ["numpy>=1.22.0,<3"]
 
 [tool.setuptools]
 # Resource dirs carry no .py files, but setuptools still treats them as packages.

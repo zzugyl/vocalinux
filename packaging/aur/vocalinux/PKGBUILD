@@ -52,6 +52,7 @@ optdepends=(
   'python-openai-whisper: OpenAI Whisper engine'
   'python-sherpa-onnx: Parakeet TDT 0.6B engine'
   'python-faster-whisper: faster-whisper engine'
+  'python-funasr-onnx: FunASR engine (Paraformer-large zh/en + punctuation)'
   'xdotool: X11 injection fallback'
   'xclip: X11 clipboard tools (copy/paste injection fallbacks)'
   'wl-clipboard: Wayland clipboard (wl-copy/wl-paste) injection fallbacks'
