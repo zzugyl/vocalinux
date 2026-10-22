@@ -237,8 +237,13 @@ rm -rf "${APPDIR:?}/usr/lib/python${PY_VER}/site-packages"/*
 
 # Everything lands in the bundle prefix, built against the managed interpreter
 # so the extension modules match the one that will run them.
+# --no-config: the bundle installs from frozen, hash-pinned exports, so the
+# ambient pyproject [tool.uv] table has nothing to contribute here. Worse than
+# noise: `override-dependencies` (the FunASR numpy override) gets injected as
+# an unpinned requirement, which --require-hashes rejects outright. uv pip is
+# the only installer that reads that table; pip in install.sh never sees it.
 uv_install() {
-  "$UV" pip install --python "$PY_BIN" --prefix "$APPDIR/usr" "$@"
+  "$UV" pip install --no-config --python "$PY_BIN" --prefix "$APPDIR/usr" "$@"
 }
 
 echo "== Installing Vocalinux + runtime deps into the bundle =="
