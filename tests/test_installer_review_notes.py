@@ -151,7 +151,7 @@ def test_interactive_engine_boxes_share_one_width() -> None:
     wandered. Keep every engine-menu echo at the same width as whisper.cpp."""
     source = _installer_source()
     start = source.index('echo "  │  1. WHISPER.CPP')
-    end = source.index("Choose engine [1-5]", start)
+    end = source.index("Choose engine [1-6]", start)
     widths = []
     for line in source[start:end].splitlines():
         if 'echo "  │' not in line and 'echo "  ┌' not in line and 'echo "  └' not in line:
