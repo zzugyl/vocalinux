@@ -30,7 +30,7 @@ EOF
     echo "Welcome! This guided installation will help you set up Vocalinux"
     echo "with the best options for your system."
     echo ""
-    echo "Local engines (whisper.cpp, Whisper, Faster Whisper, VOSK) process audio on-device after you download a model."
+    echo "Local engines (whisper.cpp, Whisper, Faster Whisper, VOSK, FunASR) process audio on-device after you download a model."
     echo "Optional Remote API is off unless you choose it; then audio goes only to the server you configure."
     echo ""
 
@@ -108,7 +108,15 @@ EOF
     echo "  └─────────────────────────────────────────────────────────────┘"
     echo ""
     echo "  ┌─────────────────────────────────────────────────────────────┐"
-    echo "  │  5. REMOTE API (ADVANCED)                                   │"
+    echo "  │  5. FUNASR (PARAFORMER)                                     │"
+    echo "  │     • On-device engine tuned for Chinese dictation          │"
+    echo "  │     • Chinese + English text with punctuation               │"
+    echo "  │     • CPU-only via ONNX Runtime (light on memory)           │"
+    echo "  │     • Model downloads in-app on first use                   │"
+    echo "  └─────────────────────────────────────────────────────────────┘"
+    echo ""
+    echo "  ┌─────────────────────────────────────────────────────────────┐"
+    echo "  │  6. REMOTE API (ADVANCED)                                   │"
     echo "  │     • Offload processing to a GPU server on your network    │"
     echo "  │     • Ideal for laptops without GPU                         │"
     echo "  │     • Supports whisper.cpp server & OpenAI-compatible APIs  │"
@@ -134,7 +142,7 @@ EOF
     esac
     echo ""
 
-    read_prompt -p "Choose engine [1-5] (default: $DEFAULT_CHOICE): " ENGINE_CHOICE
+    read_prompt -p "Choose engine [1-6] (default: $DEFAULT_CHOICE): " ENGINE_CHOICE
     ENGINE_CHOICE=${ENGINE_CHOICE:-$DEFAULT_CHOICE}
 
     case "$ENGINE_CHOICE" in
@@ -155,6 +163,10 @@ EOF
             ENGINE_DISPLAY="Faster-Whisper"
             ;;
         5)
+            SELECTED_ENGINE="funasr"
+            ENGINE_DISPLAY="FunASR (Paraformer)"
+            ;;
+        6)
             SELECTED_ENGINE="remote_api"
             ENGINE_DISPLAY="Remote API"
             ;;
