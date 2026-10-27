@@ -252,7 +252,7 @@ decorator==5.3.1 \
     --hash=sha256:4cbcdd55a6efadb9dbea26b858f4fb3264567b52d69ca0d25b721b553f60ea82 \
     --hash=sha256:f47fe6fdbd2edd623ecfe36875d37aba411624e2670dd395dddae1358689bb3c
     # via librosa
-evdev==1.9.3 ; 'linux' in sys_platform or sys_platform == 'linux' \
+evdev==1.9.3 ; sys_platform == 'linux' or 'linux' in sys_platform \
     --hash=sha256:2c140e01ac8437758fa23fe5c871397412461f42d421aa20241dc8fe8cfccbc9
     # via
     #   pynput
