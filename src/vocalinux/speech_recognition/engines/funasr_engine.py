@@ -22,7 +22,7 @@ from typing import Any, Optional
 
 import numpy as np
 
-from ...utils.funasr_model_info import FUNASR_MODEL_SIZES, get_model_path
+from ...utils.funasr_model_info import FUNASR_MODEL_SIZES, get_model_path, quantize_for
 
 logger = logging.getLogger(__name__)
 
@@ -122,20 +122,20 @@ class FunasrEngine:
             self._threads,
         )
 
-        # quantize=True selects model_quant.onnx; the contextual hotword
-        # encoder is stored as model_eb_quant.onnx because that is the file
-        # name this loader asks for (see funasr_model_info).
+        # The catalog's precision picks the files: int8 opens model_quant.onnx
+        # (and the contextual hotword encoder model_eb_quant.onnx, the name
+        # this loader asks for), fp32 opens model.onnx -- see funasr_model_info.
         self._asr = ContextualParaformer(
             asr_dir,
             batch_size=1,
-            quantize=True,
+            quantize=quantize_for("asr"),
             intra_op_num_threads=self._threads,
         )
 
         try:
             self._punc = CT_Transformer(
                 punc_dir,
-                quantize=True,
+                quantize=quantize_for("punc"),
                 intra_op_num_threads=self._threads,
             )
         except Exception:
