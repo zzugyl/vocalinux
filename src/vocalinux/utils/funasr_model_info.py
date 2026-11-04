@@ -24,7 +24,7 @@ without downloading gigabytes.
 import logging
 import os
 import shutil
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 from .paths import is_within_directory, models_dir
 
@@ -60,11 +60,18 @@ RECOMMENDED_REASON = "Bilingual Chinese and English, one model"
 # ``model_eb.onnx``; the file is therefore stored under the name the loader
 # asks for. ``configuration.json`` and ``seg_dict`` exist upstream but nothing
 # in funasr-onnx reads them, so they are not downloaded.
+#
+# ``license`` records what ModelScope's model card publishes for each
+# repository, because neither one ships a LICENSE file to download and pin the
+# way the Parakeet bundles pin LICENSE/NOTICE from Hugging Face: the
+# attribution is stated here, asserted by tests/test_funasr_model_info.py, and
+# repeated in the README, so it cannot drift silently.
 FUNASR_BUNDLE_INFO: Dict[str, Dict[str, Any]] = {
     "asr": {
         "repo": (
             "iic/speech_paraformer-large-contextual_asr_nat-zh-cn-16k-common-" "vocab8404-onnx"
         ),
+        "license": "Apache-2.0",
         "files": {
             "am.mvn": {"remote": "am.mvn", "revision": "1c4c4d2ee95dfc59aa7efa3bacce6b72af4622bc"},
             "config.yaml": {
@@ -87,6 +94,7 @@ FUNASR_BUNDLE_INFO: Dict[str, Dict[str, Any]] = {
     },
     "punc": {
         "repo": "iic/punc_ct-transformer_zh-cn-common-vocab272727-onnx",
+        "license": "Apache-2.0",
         "files": {
             "config.yaml": {
                 "remote": "config.yaml",
@@ -103,6 +111,41 @@ FUNASR_BUNDLE_INFO: Dict[str, Dict[str, Any]] = {
         },
     },
 }
+
+
+# Weight precision a bundle's ONNX files were quantized to, so the loader can
+# pick the matching file set instead of assuming int8. funasr-onnx's
+# ``quantize`` flag is the switch: True opens ``model_quant.onnx`` (and
+# ``model_eb_quant.onnx`` for the contextual hotword encoder), False opens
+# ``model.onnx`` (and ``model_eb.onnx``). Every published bundle is int8
+# today, so the key stays optional and the default keeps the old behaviour;
+# a float build only has to name itself here and ship the file names that go
+# with it -- no loader branch, the way parakeet's ``precision`` key selects
+# ``encoder.int4.onnx``.
+_QUANTIZE_FOR_PRECISION = {"int8": True, "fp32": False}
+
+
+def precision_for(bundle: str) -> str:
+    """Return the weight precision ``bundle`` ships (``"int8"`` when unset)."""
+    if bundle not in FUNASR_BUNDLE_INFO:
+        raise ValueError(f"Unknown FunASR bundle: {bundle}")
+    return cast(str, FUNASR_BUNDLE_INFO[bundle].get("precision", "int8"))
+
+
+def quantize_for(bundle: str) -> bool:
+    """Return the ``quantize`` flag funasr-onnx needs to open ``bundle``.
+
+    Raises:
+        ValueError: Unknown bundle, or a precision funasr-onnx cannot load.
+    """
+    precision = precision_for(bundle)
+    try:
+        return _QUANTIZE_FOR_PRECISION[precision]
+    except KeyError:
+        raise ValueError(
+            f"Unknown FunASR precision {precision!r} for bundle {bundle!r}; "
+            f"funasr-onnx loads {sorted(_QUANTIZE_FOR_PRECISION)}"
+        ) from None
 
 
 def bundles_for(model_size: str) -> tuple[str, ...]:
