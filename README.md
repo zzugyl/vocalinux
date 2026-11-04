@@ -429,6 +429,14 @@ You may use, study, modify, and redistribute the software under AGPL-3.0. If you
 run a modified version as a network service, AGPL also requires that you make the
 corresponding source available.
 
+Speech models are downloaded separately and keep their own licenses. The FunASR
+engine's two bundles -- Paraformer-large contextual and the CT-Transformer
+punctuation model, both from ModelScope -- are **Apache License 2.0**, as their
+model cards publish; ModelScope ships no LICENSE file inside those
+repositories, so the attribution is recorded in
+`src/vocalinux/utils/funasr_model_info.py` and asserted by the test suite
+rather than pinned as a downloaded file.
+
 ## Star Chart
 
 [![Star History Chart](https://api.star-history.com/chart?repos=VocaHQ/vocalinux&type=date&legend=top-left&sealed_token=ZWyQQLhSORoR4mKf6UXMGFSCBXRxM_yEZgc8MFCH_ysBjaFUm_OCH-bI3TD7OivczEzm-ADRIpF9xCWFOMHvBPW95eQBxzfRMpNksChz7rN_eiqL7AIMDw)](https://www.star-history.com/?type=date&repos=VocaHQ%2Fvocalinux)
