@@ -549,6 +549,50 @@ class TestOverlayWithMockedGtkWindow(unittest.TestCase):
             overlay._anim_id = None
             overlay.destroy()
 
+    def test_raise_on_show_lifts_the_window_when_visible(self) -> None:
+        overlay, mock_window = self._mock_window_overlay()
+        overlay._use_layer_shell = False
+        overlay._raise_on_show = True
+
+        with patch.object(overlay, "_layout_bottom_strip"):
+            overlay.on_recognition_state(RecognitionState.LISTENING)
+
+        mock_window.get_window.return_value.raise_.assert_called()
+
+        overlay._window = None
+        overlay._anim_id = None
+        overlay.destroy()
+
+    def test_raise_on_show_is_off_by_default(self) -> None:
+        overlay, mock_window = self._mock_window_overlay()
+        overlay._use_layer_shell = False
+
+        with patch.object(overlay, "_layout_bottom_strip"):
+            overlay.on_recognition_state(RecognitionState.LISTENING)
+
+        mock_window.get_window.return_value.raise_.assert_not_called()
+
+        overlay._window = None
+        overlay._anim_id = None
+        overlay.destroy()
+
+    def test_animation_tick_reraises_only_when_enabled_and_rearmed(self) -> None:
+        overlay, mock_window = self._mock_window_overlay()
+        overlay._raise_on_show = True
+        overlay.controller.set_state(RecognitionState.LISTENING)
+
+        overlay._on_anim_tick()  # countdown starts at 0: raise immediately
+        overlay._on_anim_tick()  # re-armed: quiet for the whole interval
+        raise_mock = mock_window.get_window.return_value.raise_
+        self.assertEqual(raise_mock.call_count, 1)
+
+        overlay._raise_on_show = False
+        overlay._on_anim_tick()
+        self.assertEqual(raise_mock.call_count, 1)
+
+        overlay._window = None
+        overlay.destroy()
+
     def test_start_animation_is_idempotent(self):
         overlay = _overlay_without_gtk(enabled=True)
         overlay._gtk_ready = True
