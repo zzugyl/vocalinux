@@ -174,6 +174,7 @@ src/vocalinux/
 ├── ui/
 │   ├── tray_indicator.py, settings_dialog.py, settings_about.py
 │   ├── settings_engines.py, first_run_dialog.py, dictation_overlay.py
+│   ├── overlay_helper.py        # XWayland helper for the overlay on GNOME Wayland
 │   ├── dictation_pad.py
 │   ├── transcript_dialog.py    # speaker-tagged transcript viewer/export
 │   ├── config_manager.py, action_handler.py, audio_feedback.py

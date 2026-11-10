@@ -12,10 +12,12 @@ import logging
 import math
 import os
 from types import ModuleType
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Callable, Mapping, Optional, Union
 
 if TYPE_CHECKING:
     from gi.repository import Gdk, Gtk
+
+    from .overlay_helper import RemoteDictationOverlay
 
 from ..common_types import RecognitionState
 
@@ -39,6 +41,9 @@ _PULSE_PERIOD_MS = 1400
 _ANIMATION_TICK_MS = 33  # ~30 fps
 _BOTTOM_MARGIN = 48
 _RIPPLE_STROKE_WIDTH = 2.0
+# While the helper owns an unmanaged X window, re-raise it this often so a
+# focused editor cannot keep the orb buried (~330 ms at 30 fps).
+_RAISE_INTERVAL_TICKS = 10
 
 
 class DictationOverlayController:
@@ -137,6 +142,7 @@ class DictationOverlay:
         self,
         enabled: bool = True,
         on_close_request: Optional[Callable[[], None]] = None,
+        raise_on_show: bool = False,
     ) -> None:
         self.controller = DictationOverlayController(enabled=enabled)
         # Called when the dock or taskbar asks to close the window (#1028).
@@ -150,6 +156,10 @@ class DictationOverlay:
         self._ripple_phase = 1.0
         self._gtk_ready = False
         self._use_layer_shell = False
+        # The XWayland helper's window is unmanaged: nothing else raises it
+        # when a maximized editor takes the top of the stacking order.
+        self._raise_on_show = bool(raise_on_show)
+        self._raise_countdown = 0
 
         try:
             self._init_gtk_window()
@@ -159,6 +169,11 @@ class DictationOverlay:
             # Headless / missing display: keep controller usable for tests.
             logger.warning("Dictation overlay window unavailable: %s", e)
             self._gtk_ready = False
+
+    @property
+    def gtk_ready(self) -> bool:
+        """Whether the GTK window exists (False when headless or before construction)."""
+        return self._gtk_ready
 
     def _init_gtk_window(self) -> None:
         """Construct the floating transparent always-on-top bottom strip."""
@@ -422,6 +437,9 @@ class DictationOverlay:
         except Exception:
             pass
 
+        if self._raise_on_show:
+            self._raise_window()
+
         self._start_animation()
         if self._drawing_area is not None:
             self._drawing_area.queue_draw()
@@ -510,6 +528,26 @@ class DictationOverlay:
         except Exception as e:
             logger.debug("Could not layout overlay strip: %s", e)
 
+    def _raise_window(self) -> None:
+        """Bring the orb above the desktop's windows (helper path only).
+
+        X11 and XWayland honor a raise on an unmanaged window; Wayland
+        clients cannot raise toplevels, so the in-process fallback treats
+        this as a harmless no-op. Stacking failures never break dictation.
+        """
+        if self._window is None:
+            return
+        try:
+            gdk_window = self._window.get_window()
+            if gdk_window is None:
+                return
+            # ``raise`` is a Python keyword; PyGObject exposes it as raise_.
+            raise_method = getattr(gdk_window, "raise_", None) or getattr(gdk_window, "raise", None)
+            if raise_method is not None:
+                raise_method()
+        except Exception as e:
+            logger.debug("Could not raise overlay window: %s", e)
+
     def _start_animation(self) -> None:
         if self._anim_id is not None:
             return
@@ -533,6 +571,12 @@ class DictationOverlay:
         self._ripple_phase = min(1.0, self._ripple_phase + _ANIMATION_TICK_MS / 650.0)
         if self._drawing_area is not None:
             self._drawing_area.queue_draw()
+        if self._raise_on_show:
+            # A focused window restacks above the orb; take the top back.
+            self._raise_countdown -= 1
+            if self._raise_countdown <= 0:
+                self._raise_countdown = _RAISE_INTERVAL_TICKS
+                self._raise_window()
         # Keep ticking while visible.
         return self.controller.visible
 
@@ -607,3 +651,70 @@ class DictationOverlay:
         cr.fill()
 
         return False
+
+
+def _session_is_wayland(env: Mapping[str, str]) -> bool:
+    """Whether the session is Wayland (same hint as issue #752)."""
+    if env.get("XDG_SESSION_TYPE", "").lower() == "wayland":
+        return True
+    return bool(env.get("WAYLAND_DISPLAY", ""))
+
+
+def _layer_shell_supported() -> bool:
+    """True when gtk-layer-shell is importable and the compositor advertises it."""
+    module = _try_import_layer_shell()
+    if module is None:
+        return False
+    try:
+        return bool(module.is_supported())
+    except Exception:
+        # Probing before GTK has a display can raise; DictationOverlay retries
+        # after construction, and the XWayland helper is safe either way.
+        return False
+
+
+def helper_backend_available(env: Optional[Mapping[str, str]] = None) -> bool:
+    """Whether the overlay should run in the XWayland helper process.
+
+    The helper only pays off when the main window is a Wayland toplevel that
+    cannot be positioned or raised (no layer shell) while an X display exists
+    for it to connect to. ``GDK_BACKEND=x11`` on the whole app already yields
+    a correct in-process X11 window, and tests must never spawn a child.
+    """
+    if env is None:
+        env = os.environ
+    if env.get("PYTEST_RUNNING") == "1":
+        return False
+    if not _session_is_wayland(env):
+        return False
+    backend = env.get("GDK_BACKEND", "").split(",")[0].strip().lower()
+    if backend == "x11":
+        return False
+    if not env.get("DISPLAY", "").strip():
+        return False
+    if _layer_shell_supported():
+        return False
+    return True
+
+
+def create_dictation_overlay(
+    enabled: bool = True,
+    on_close_request: Optional[Callable[[], None]] = None,
+) -> Union[DictationOverlay, "RemoteDictationOverlay"]:
+    """Build the floating overlay for this session.
+
+    X11 sessions, layer-shell sessions and tests get the in-process window;
+    a Wayland session without layer shell runs it in an XWayland helper so
+    the orb can be placed bottom-center and raised above maximized windows
+    (GNOME). Any helper failure falls back to the in-process overlay.
+    """
+    if helper_backend_available():
+        from .overlay_helper import RemoteDictationOverlay  # local: avoids an import cycle
+
+        try:
+            return RemoteDictationOverlay(enabled=enabled, on_close_request=on_close_request)
+        except Exception as e:
+            logger.warning(
+                "XWayland overlay helper unavailable (%s); using the in-process overlay", e
+            )
+    return DictationOverlay(enabled=enabled, on_close_request=on_close_request)
