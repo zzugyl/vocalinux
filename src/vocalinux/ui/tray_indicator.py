@@ -275,11 +275,13 @@ class TrayIndicator:
             self.speech_engine.set_model_missing_handler(self._offer_recommended_model)
 
         # Floating on-screen indicator (glow while listening); gated by config.
-        # Lazy import keeps tray import light for tests that mock gi.
-        from .dictation_overlay import DictationOverlay
+        # Lazy import keeps tray import light for tests that mock gi. On Wayland
+        # without layer shell the factory runs it in an XWayland helper so the
+        # orb can sit above maximized windows.
+        from .dictation_overlay import create_dictation_overlay
 
         # Quit from the dock closes the overlay toplevel; treat it as Quit (#1028).
-        self.overlay = DictationOverlay(
+        self.overlay = create_dictation_overlay(
             enabled=self.config_manager.is_overlay_enabled(),
             on_close_request=self._quit,
         )
